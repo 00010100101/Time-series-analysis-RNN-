@@ -1,0 +1,105 @@
+import numpy 
+import matplotlib.pyplot as plt
+from pandas import read_csv
+from keras.models import Sequential
+from keras.layers import Dense
+from keras.layers import LSTM
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.metrics import mean_squared_error
+from keras.layers import Dropout
+%matplotlib inline
+import pandas as pd
+
+NUM_OF_PREV_ITEMS = 5
+def reconstruct_data(data_set,n=1):
+    x,y=[] ,[]
+    for i in range(len(data_set)-n-1):
+        a= data_set[i:(i+n),0]
+        x.append(a)
+        y.append(data_set[i+n,0])
+    return numpy.array(x) ,numpy.array(y)
+
+numpy.random.seed(1)
+data_frame = pd.read_csv('E:\\time23.csv',usecols=[1])
+data_frame
+	temperature
+0	20.7
+1	17.9
+2	18.8
+3	14.6
+4	15.8
+...	...
+3645	14.0
+3646	13.6
+3647	13.5
+3648	15.7
+3649	13.0
+3650 rows × 1 columns
+data = data_frame.values
+data = data.astype('float32')
+scaler = MinMaxScaler(feature_range=(0,1))
+data=scaler.fit_transform(data)
+plt.plot(data_frame)
+data.shape[0]
+train,test =data[0:int(len(data)*0.7),:],data[int(len(data)*0.7):len(data),:]
+train
+train_x,train_y = reconstruct_data(train,NUM_OF_PREV_ITEMS)
+test_x,test_y  = reconstruct_data(test,NUM_OF_PREV_ITEMS)
+train_x.shape[0],1,train_x.shape[1]
+train_x.shape[0]
+train_x =numpy.reshape(train_x,(train_x.shape[0],1,train_x.shape[1]))
+test_x =numpy.reshape(test_x,(test_x.shape[0],1,test_x.shape[1]))
+model= Sequential()
+model.add(LSTM(units=100,return_sequences=True,input_shape=(1,NUM_OF_PREV_ITEMS)))
+model.add(Dropout(0.5))
+model.add(LSTM(units=100,return_sequences=True))
+model.add(Dropout(0.3))
+model.add(LSTM(units=50))
+model.add(Dropout(0.3))
+model.add(Dense(units=1))
+model.compile(loss='mean_squared_error',optimizer ='adam')
+model.fit(train_x,train_y,epochs=10,batch_size=16,verbose=2)
+Epoch 1/10
+160/160 - 1s - loss: 0.0371
+Epoch 2/10
+160/160 - 1s - loss: 0.0143
+Epoch 3/10
+160/160 - 1s - loss: 0.0128
+Epoch 4/10
+160/160 - 1s - loss: 0.0119
+Epoch 5/10
+160/160 - 1s - loss: 0.0118
+Epoch 6/10
+160/160 - 1s - loss: 0.0114
+Epoch 7/10
+160/160 - 1s - loss: 0.0107
+Epoch 8/10
+160/160 - 1s - loss: 0.0107
+Epoch 9/10
+160/160 - 1s - loss: 0.0107
+Epoch 10/10
+160/160 - 1s - loss: 0.0104
+<tensorflow.python.keras.callbacks.History at 0x1df68b9d460>
+test_predict = model.predict(test_x)
+test_predict =scaler.inverse_transform(test_predict)
+test_labels  =scaler.inverse_transform([test_y])
+test_labels
+array([[15.19999937, 17.        , 18.70000016, ..., 13.59999969,
+        13.50000078, 15.70000016]])
+test_score =mean_squared_error(test_labels[0],test_predict[:,0])
+print('Score on test set : %.2f MSE'  % test_score)
+   Score on test set : 5.68 MSE
+test_predict_plot =numpy.empty_like(data)
+test_predict_plot[:,:] = numpy.nan
+test_predict_plot[len(train_x)+2*NUM_OF_PREV_ITEMS+1:len(data)-1,:] = test_predict
+test_predict_plot
+array([[      nan],
+       [      nan],
+       [      nan],
+       ...,
+       [12.523898],
+       [12.938833],
+       [      nan]], dtype=float32)
+
+plt.plot(scaler.inverse_transform(data))
+plt.plot(test_predict_plot,color ='green')
